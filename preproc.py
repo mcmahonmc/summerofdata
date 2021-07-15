@@ -9,7 +9,15 @@ from wearables import watchoff
 import matplotlib.pyplot as plt
 
 def preproc(in_file, device, sr='1T', truncate=True, write=True, plot=True, recording_period_min=7, interpolate_limit=10, interpolate_method='linear'):
-
+# in_file is _New_Analysis.csv raw Actiware export
+# device is either 'actiwatch' or 'fitbit'
+# sr is 1T for 1 minute, 0.5T for 30 seconds, etc.
+# truncate will take the first n days of Data
+# write writes out csv files for each of the preprocessing steps (truncate, interpolate)
+# plot generates plots comparing the raw data to the preprocessed Data
+# recording period min specifies the number of days to truncate to/minimum days of activity Data
+# interpolate limit is number of epochs to interpolate (1T with interpolate_limit=10 is 10 min, 0.5T with interpolate_limit=20 is 10 min)
+# interpolate method defaults to linear
 
     data = []
 
