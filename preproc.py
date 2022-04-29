@@ -1,23 +1,22 @@
-import os
-import sys
-from datetime import date
-import pandas as pd
-import datetime as dt
-import logging
-import glob
-from wearables import watchoff
-import matplotlib.pyplot as plt
-
 def preproc(in_file, device, sr='1T', truncate=True, write=True, plot=True, recording_period_min=7, interpolate_limit=10, interpolate_method='linear'):
-# in_file is _New_Analysis.csv raw Actiware export
-# device is either 'actiwatch' or 'fitbit'
-# sr is 1T for 1 minute, 0.5T for 30 seconds, etc.
-# truncate will take the first n days of Data
-# write writes out csv files for each of the preprocessing steps (truncate, interpolate)
-# plot generates plots comparing the raw data to the preprocessed Data
-# recording period min specifies the number of days to truncate to/minimum days of activity Data
-# interpolate limit is number of epochs to interpolate (1T with interpolate_limit=10 is 10 min, 0.5T with interpolate_limit=20 is 10 min)
-# interpolate method defaults to linear
+    import os
+    import sys
+    from datetime import date
+    import pandas as pd
+    import datetime as dt
+    import logging
+    import glob
+    import matplotlib.pyplot as plt
+    import numpy as np
+    # in_file is _New_Analysis.csv raw Actiware export
+    # device is either 'actiwatch' or 'fitbit'
+    # sr is 1T for 1 minute, 0.5T for 30 seconds, etc.
+    # truncate will take the first n days of Data
+    # write writes out csv files for each of the preprocessing steps (truncate, interpolate)
+    # plot generates plots comparing the raw data to the preprocessed Data
+    # recording period min specifies the number of days to truncate to/minimum days of activity Data
+    # interpolate limit is number of epochs to interpolate (1T with interpolate_limit=10 is 10 min, 0.5T with interpolate_limit=20 is 10 min)
+    # interpolate method defaults to linear
 
     data = []
 
@@ -40,7 +39,7 @@ def preproc(in_file, device, sr='1T', truncate=True, write=True, plot=True, reco
 
         if device == 'actiwatch':
 
-            record_id = os.path.basename(in_file).str.split('_')[0] # check this
+            record_id = str(os.path.basename(in_file)).split('_')[0]
 
             with open(in_file) as f:
                 for i, l in enumerate(f):
@@ -77,27 +76,21 @@ def preproc(in_file, device, sr='1T', truncate=True, write=True, plot=True, reco
         data = data.resample(sr).sum()
         data = data['Activity']
 
-        if device == 'fitbit':
-            data = watchoff.watchoff(record_id, data, in_file, out_dir)
 
-        start_time = data.first_valid_index() # TO DO: find first non-zero activity value
-        end_time = data.last_valid_index()
+        start_time = data.index[np.nonzero(data.values)[0][0]]
+        end_time = data.index[np.nonzero(data.values)[0][-1]]]
+        print(start_time)
         period = end_time - start_time
 
         raw = data
-        raw.to_csv(out_dir + '/' + record_id + '.csv', index=True, index_label=None, header=None, na_rep='NaN')
 
         missingNum = data.isnull().sum()
         error = 0
         logging.info('%s processing' % record_id)
 
-        if missingNum > 0:
-            # remove trailing and leading activity values
-            length_init = len(data)
-            data = data.loc[start_time:end_time]
-
-            logging.info('----- removed leading and trailing NaN activity values')
-            missingNum = data.isnull().sum()
+        data = data[start_time:end_time]
+        print(data[np.nonzero(data.values)[0][0]])
+        logging.info('----- removed leading and trailing NaN activity values')
 
         if missingNum > 0:
             # interpolate
@@ -133,6 +126,7 @@ def preproc(in_file, device, sr='1T', truncate=True, write=True, plot=True, reco
             if not os.path.isdir(out_dir + '/figures/'):
                 os.makedirs(out_dir + '/figures/')
             plt.savefig(out_dir + '/figures/' + record_id + '_' + str(recording_period_min) + '_d_interpolate-' + interpolate_method + '.png', dpi = 300)
+            plt.close()
 
         if missingNum > 0.10 * len(data):
             print('----- error: missing values = %.2f percent' %
@@ -163,6 +157,8 @@ def preproc(in_file, device, sr='1T', truncate=True, write=True, plot=True, reco
                   (100*(missingNum / len(data)), str(period)))
         else:
             print('----- exclude from analysis')
+
+        data.to_csv(out_dir + '/' + record_id + '.csv', index=True, index_label=None, header=None, na_rep='NaN')
 
     except Exception as e:
         exc_type, exc_obj, exc_tb = sys.exc_info()
